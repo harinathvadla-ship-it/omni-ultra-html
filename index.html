@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LiteHost - Tiny Host Clone</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f4f7f6; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 15px; box-sizing: border-box; }
+        .card { background: white; padding: 30px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); width: 100%; max-width: 400px; text-align: center; box-sizing: border-box; }
+        h1 { color: #4F46E5; margin: 0 0 6px 0; font-size: 28px; font-weight: 800; }
+        p { color: #666; font-size: 14px; margin: 0 0 24px 0; }
+        .form-group { text-align: left; margin-bottom: 20px; }
+        label { display: block; font-size: 11px; font-weight: 700; uppercase; color: #9aa8b6; margin-bottom: 6px; letter-spacing: 0.5px; }
+        input[type="file"] { width: 100%; padding: 12px; border: 2px dashed #e2e8f0; border-radius: 8px; box-sizing: border-box; background: #f8fafc; cursor: pointer; }
+        button { background: #4F46E5; color: white; border: none; width: 100%; padding: 14px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; transition: background 0.2s; }
+        button:hover { background: #4338CA; }
+        .status { margin-top: 20px; padding: 14px; border-radius: 8px; font-size: 14px; display: none; word-break: break-all; text-align: left; line-height: 1.5; }
+        .info { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+        .success { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+        .error { background: #fff1f2; color: #9f1239; border: 1px solid #fecdd3; }
+        .btn-link { display: inline-block; margin-top: 10px; background: #10b981; color: white; text-decoration: none; padding: 8px 16px; border-radius: 6px; font-weight: bold; text-align: center; width: 100%; box-sizing: border-box; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h1>⚡ LiteHost</h1>
+        <p>Deploy HTML sites instantly from your app.</p>
+        
+        <div class="form-group">
+            <label>Select Website File (.html)</label>
+            <input type="file" id="fileInput" accept=".html" />
+        </div>
+
+        <button id="uploadBtn" onclick="processUpload()">Launch Site</button>
+        <div id="statusBox" class="status"></div>
+    </div>
+
+    <script>
+        function processUpload() {
+            const fileInput = document.getElementById('fileInput');
+            if (!fileInput.files || fileInput.files.length === 0) {
+                showStatus('❌ Please select an HTML file first!', 'error');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            showStatus('🔄 Reading file contents securely...', 'info');
+
+            const reader = new FileReader();
+            
+            reader.onload = async function(e) {
+                const rawHtmlContent = e.target.result;
+                showStatus('🚀 Synchronizing code with hosting node...', 'info');
+                
+                try {
+                    // Using ttm.sh - a completely open text/file stream cluster that allows raw text piping
+                    const formData = new FormData();
+                    formData.append('file', new Blob([rawHtmlContent], { type: 'text/html' }), 'index.html');
+
+                    const response = await fetch('https://ttm.sh', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) throw new Error('Primary server link dropped.');
+
+                    const liveUrl = await response.text();
+                    if (liveUrl && liveUrl.trim().startsWith('http')) {
+                        const cleanUrl = liveUrl.trim();
+                        showStatus(`🎉 <b>Your site is live!</b><br><br>The file has been parsed and deployed.<br><br><a href="${cleanUrl}" target="_blank" class="btn-link">Open Live Website</a>`, 'success');
+                    } else {
+                        throw new Error('Invalid URL back-response.');
+                    }
+
+                } catch (err) {
+                    fallbackTextDeploy(rawHtmlContent);
+                }
+            };
+
+            reader.readAsText(file);
+        }
+
+        async function fallbackTextDeploy(htmlText) {
+            showStatus('🔄 Routing through backup text cluster...', 'info');
+            try {
+                // Ultra-basic paste deployment that drops all binary properties entirely
+                const response = await fetch('https://bashupload.com/index.html', {
+                    method: 'POST',
+                    body: htmlText
+                });
+
+                const logText = await response.text();
+                // Extract URL from bashupload output text stream
+                const match = logText.match(/https:\/\/bashupload\.com\/[a-zA-Z0-9.\-_]+/);
+                
+                if (match && match[0]) {
+                    showStatus(`🎉 <b>Site Deployed (Backup Line)!</b><br><br><a href="${match[0]}" target="_blank" class="btn-link">Open Live Website</a>`, 'success');
+                } else {
+                    showStatus('❌ Both primary and secondary servers are unreachable over your current connection.', 'error');
+                }
+            } catch (e) {
+                showStatus(`❌ <b>Network Core Error</b><br><br>Your internet provider or device settings are blocking incoming/outgoing standard API ports.<br><br><b>Quick Fix:</b> Try switching your phone from Wi-Fi to Mobile Data (or vice versa) or check your APN/DNS setup to ensure standard scripts aren't being restricted.`, 'error');
+            }
+        }
+
+        function showStatus(message, type) {
+            const statusBox = document.getElementById('statusBox');
+            statusBox.className = 'status ' + type;
+            statusBox.innerHTML = message;
+            statusBox.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
